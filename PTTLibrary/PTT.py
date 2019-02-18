@@ -555,15 +555,6 @@ class Library(object):
             return screen
         # http://asf.atmel.com/docs/latest/uc3l/html/group__group__avr32__utils__print__funcs.html#ga024c3e2852fe509450ebc363df52ae73
         
-        # ShowTarget = '洗髮用品、洗臉卸粧用品、沐浴用品、香皂類'
-        # if ShowTarget in screen:
-        #     self.Log('========================')
-        #     self.Log(str(screen))
-        #     self.Log('========================')
-
-        # if '[2J' in screen:
-        #     screen = screen[screen.find('[2J'):]
-
         PreNewLineMark = -1
         PTTLibraryNewLineMark = '==PTTLibraryNewLineMark=='
         for NewLineMark in range(1, 25):
@@ -616,6 +607,7 @@ class Library(object):
         screen = re.sub(r'[\x7f-\xff]', '', screen)
         # self.Log('after: ' + str(screen))
         return screen
+
     def __wait_str(self, ConnectIndex):
         ch = ''
         while True:
@@ -624,12 +616,14 @@ class Library(object):
                 break
         # return self.__dec_bytes(ch)
         return ch
+
     def __recv_str(self, ConnectIndex):
         # return self.__dec_bytes(self.__ConnectList[ConnectIndex].channel.recv(self.buf_size))
         return self.__ConnectList[ConnectIndex].channel.recv(self.buf_size)
-    # decode byte array to UTF-8 string
+
     def __dec_bytes(self, bytes):
-        return bytes.decode('utf-8', errors = 'ignore')
+        return bytes.decode('utf-8', errors='ignore')
+
     def __connectRemote(self, ConnectIndex):
         
         global ErrorCode
