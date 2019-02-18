@@ -6,6 +6,7 @@ import progressbar
 import socket
 import array
 import paramiko
+import traceback
 from paramiko import ECDSAKey
 from uao import Big5UAOCodec
 uao = Big5UAOCodec()
@@ -441,8 +442,10 @@ class Library(object):
                                 ExtraWait
                             )
                     TimeCout += 1
-                
-                EncodeMessage, Len = uao.encode(SendMessage)
+                try:
+                    EncodeMessage, Len = uao.encode(SendMessage)
+                except:
+                    EncodeMessage = SendMessage.encode('big5', 'replace')
                 self.__ConnectList[ConnectIndex].channel.send(EncodeMessage)
             
             TimeCout = 0
@@ -505,7 +508,9 @@ class Library(object):
             self.Log('使用者中斷')
             self.__ErrorCode = ErrorCode.UserInterrupt
             return self.__ErrorCode, -1
-        except:
+        except Exception as e:
+            traceback.print_tb(e.__traceback__)
+            print(e)
             self.Log('斷線，重新連線')
             if self.__ErrorCode != ErrorCode.UserInterrupt:
                 self.__connectRemote(ConnectIndex)
@@ -1763,13 +1768,14 @@ class Library(object):
         PostID = PostID[:PostID.find(' ')]
         while PostID.endswith(' '):
             PostID = PostID[:-1]
-        
         Target = '文章網址: '
-        PostWeb = InfoLines[1]
-        PostWeb = PostWeb[PostWeb.find(Target) + len(Target):]
-        PostWeb = PostWeb[:PostWeb.find(' ')]
-        while PostWeb.endswith(' '):
-            PostWeb = PostWeb[:-1]
+        if Target in InfoLines[1]:
+            PostWeb = InfoLines[1]
+            PostWeb = PostWeb[PostWeb.find(Target) + len(Target):]
+            PostWeb = PostWeb[:PostWeb.find(' ')].strip()
+        else:
+            PostWeb = None
+
         try:
             if '特殊文章，無價格記錄' in InfoLines[2]:
                 PostMoney = -1
@@ -1780,7 +1786,6 @@ class Library(object):
             self.Log('取得文章價錢失敗: ' + InfoLines[2], LogLevel.DEBUG)
         
         # self.Log('PostID: =' + PostID + '=')
-        # self.Log('PostTitle: =' + PostTitle + '=')
         # self.Log('PostWeb: =' + PostWeb + '=')
         # self.Log('PostMoney: =' + str(PostMoney) + '=')
 
@@ -1849,6 +1854,57 @@ class Library(object):
             
             # self.__showScreen(ErrCode, sys._getframe().f_code.co_name, ConnectIndex=ConnectIndex)
 
+            if '◆ 此文章無內容' in self.__ReceiveData[ConnectIndex]:
+                for line in Lines:
+                    line = line.strip()
+                    if line.startswith(self.__Cursor):
+                        Parts = line.split(' ')
+                        Parts = [x.strip() for x in Parts if len(x) > 0]
+                        # print('='.join(Parts))
+
+                        ListDate = Parts[2]
+                        if ListDate == '+':
+                            ListDate = Parts[3]
+                            Author = Parts[4]
+                        else:
+                            Author = Parts[3]
+
+                        Parts = line.split('□')
+                        Parts = [x.strip() for x in Parts if len(x) > 0]
+                        
+                        if len(Parts) < 2:
+                            ErrCode = ErrorCode.ParseError
+                            self.__ErrorCode = ErrCode
+                            self.__WaterBallProceeor()
+                            return ErrCode, None
+
+                        Title = Parts[1]
+                        Title = Title[:Title.rfind('(')].strip()
+
+                        # print('ListDate >' + ListDate + '<')
+                        # print('Author >' + Author + '<')
+                        # print('Title >' + Title + '<')
+                        # print('PostID >' + PostID + '<')
+                        # print('PostWeb >' + str(PostWeb) + '<')
+                        # print('PostMoney >' + str(PostMoney) + '<')
+
+                        if 'ALLPOST' == Board:
+                            Board = Title[Title.rfind('(')+1:].replace(')', '')
+                            # print('Board >' + Board + '<')
+
+                        result = Information.PostInformation(Board=Board, 
+                                                             PostID=PostID,
+                                                             Author=Author, 
+                                                             Title=Title,
+                                                             Money=PostMoney,
+                                                             ListDate=ListDate, 
+                                                             DeleteStatus=PostDeleteStatus.ByUnknow)
+                        
+                        ErrCode = ErrorCode.PostDeleted
+                        self.__ErrorCode = ErrCode
+                        self.__WaterBallProceeor()
+                        return ErrCode, result
+
             isDetectedTarget = False
 
             if FirstPage == '':
@@ -1882,26 +1938,13 @@ class Library(object):
                     if not ControlCodeMode:
 
                         PageLineRange = list(map(int, PageLineRange))[-2:]
-                        # OverlapLine = LastPageIndex - PageLineRange[0] + 1
 
                         AppendLine = PageLineRange[1] - LastPageIndex
 
                         if AppendLine > 0 and LastPageIndex != 0:
-                            # ShowTarget = '洗髮用品、洗臉卸粧用品、沐浴用品、香皂類'
-                            # if ShowTarget in CurrentPage:
-                            #     print(CurrentPageList)
-                            #     print(len(CurrentPageList))
-                            #     print('附加', AppendLine, '行')
-                            #     print(CurrentPageList[-AppendLine:])
 
                             CurrentPageList = CurrentPageList[-AppendLine:]
                             CurrentRawPageList = CurrentRawPageList[-AppendLine:]
-                            # if not isFirstPage:
-                            #     for i in range(OverlapLine):
-                            #         for ii in range(len(CurrentRawPage)):
-                            #             if CurrentRawPage[ii] == NewLineByte:
-                            #                 CurrentRawPage = CurrentRawPage[ii + 1:]
-                            #                 break
                     
                         LastPageIndex = PageLineRange[1]
                         PostContentListTemp.extend(CurrentPageList)
@@ -1962,39 +2005,32 @@ class Library(object):
                 sys.exit()
         
         FirstPage = FirstPage[FirstPage.find('作者'):]
-        PostLineList = FirstPage.split('\n')
-
-        # if len(PostLineList) < 3:
-        #     ErrCode = ErrorCode.ParseError
-        #     self.__ErrorCode = ErrCode
-        #     return ErrCode, None
-        # for line in PostLineList:
-        #     print('Q', line)
+        # print(FirstPage)
 
         Target = '作者  '
         if Target in FirstPage:
-            PostAuthor = PostLineList[0]
+            PostAuthor = FirstPage
             PostAuthor = PostAuthor[PostAuthor.find(Target) + len(Target):]
             PostAuthor = PostAuthor[:PostAuthor.find(')') + 1]
-            PostAuthor = PostAuthor.rstrip()
+            PostAuthor = PostAuthor.strip()
         else:
             PostAuthor = ListAuthor
         
         Target = '標題  '
         if Target in FirstPage:
-            PostTitle = PostLineList[1]
+            PostTitle = FirstPage
             PostTitle = PostTitle[PostTitle.find(Target) + len(Target):]
-            PostTitle = PostTitle[:PostTitle.find('\r')]
-            PostTitle = PostTitle.rstrip()
+            PostTitle = PostTitle[:PostTitle.find('\n 時間')]
+            PostTitle = PostTitle.strip()
         else:
             PostTitle = None
 
         Target = '時間  '
         if Target in FirstPage:
-            PostDate = PostLineList[2]
+            PostDate = FirstPage
             PostDate = PostDate[PostDate.find(Target) + len(Target):]
-            PostDate = PostDate[:PostDate.find('\r')]
-            PostDate = PostDate.rstrip()
+            PostDate = PostDate[:PostDate.find('\n')]
+            PostDate = PostDate.strip()
         else:
             PostDate = None
 

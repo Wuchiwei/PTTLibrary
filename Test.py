@@ -82,38 +82,50 @@ def GetNewestIndexDemo():
     
     PTTBot.Log('GetNewestIndexDemo 測試完成')
     return
+
+
+def __Show(PreStr, Value):
+    if Value is not None:
+        PTTBot.Log(PreStr + '>' + Value + '<')
+    else:
+        PTTBot.Log(PreStr + 'None')
+
+
 def showPost(Post):
-    PTTBot.Log('文章代碼: ' + Post.getID())
-    PTTBot.Log('作者: ' + Post.getAuthor())
-    PTTBot.Log('標題: ' + Post.getTitle())
-    PTTBot.Log('時間: ' + Post.getDate())
-    PTTBot.Log('價錢: ' + str(Post.getMoney()))
-    PTTBot.Log('IP: ' + Post.getIP())
-    PTTBot.Log('網址: ' + Post.getWebUrl())
-    PTTBot.Log('文章列表日期: ' + Post.getListDate())
+    __Show('文章代碼: ', Post.getID())
+    __Show('作者: ', Post.getAuthor())
+    __Show('標題: ', Post.getTitle())
+    __Show('時間: ', Post.getDate())
+    __Show('價錢: ', str(Post.getMoney()))
+    __Show('IP: ', Post.getIP())
+    __Show('網址: ', Post.getWebUrl())
+    __Show('文章列表日期: ', Post.getListDate())
 
-    PTTBot.Log('內文:\n' + Post.getContent())
+    __Show('內文:\n', Post.getContent())
 
-    PushCount = 0
-    BooCount = 0
-    ArrowCount = 0
+    if Post.getPushList() is not None:
+        PushCount = 0
+        BooCount = 0
+        ArrowCount = 0
 
-    for Push in Post.getPushList():
-        PushType = Push.getType()
+        for Push in Post.getPushList():
+            PushType = Push.getType()
 
-        if PushType == PTT.PushType.Push:
-            PushCount += 1
-        elif PushType == PTT.PushType.Boo:
-            BooCount += 1
-        elif PushType == PTT.PushType.Arrow:
-            ArrowCount += 1
-        
-        Author = Push.getAuthor()
-        Content = Push.getContent()
-        # IP = Push.getIP()
-        PTTBot.Log('推文: ' + Author + ': ' + Content)
-        
-    PTTBot.Log('共有 ' + str(PushCount) + ' 推 ' + str(BooCount) + ' 噓 ' + str(ArrowCount) + ' 箭頭')
+            if PushType == PTT.PushType.Push:
+                PushCount += 1
+            elif PushType == PTT.PushType.Boo:
+                BooCount += 1
+            elif PushType == PTT.PushType.Arrow:
+                ArrowCount += 1
+            
+            Author = Push.getAuthor()
+            Content = Push.getContent()
+            # IP = Push.getIP()
+            PTTBot.Log('推文: ' + Author + ': ' + Content)
+            
+        PTTBot.Log('共有 ' + str(PushCount) + ' 推 ' + str(BooCount) + ' 噓 ' + str(ArrowCount) + ' 箭頭')
+    else:
+        PTTBot.Log('無推文清單')
 
 def GetPostDemo():
     
@@ -158,40 +170,40 @@ def GetPostDemo():
     # 搜尋類別
     inputSearchType = PTT.PostSearchType.Keyword
     # 搜尋條件
-    inputSearch = '公告'
+    inputSearch = '(Wanted)'
 
     Test = False
 
     if not Test:
 
         BoardList = ['Wanted', 'Gossiping', 'Test', 'NBA', 'Baseball', 'LOL', 'C_Chat']
-        TryPost = 3
+        TryPost = 1
     else:
         # 測試用
-        BoardList = ['Wanted']
-        TryPost = 1
+        BoardList = ['ALLPOST']
+        TryPost = 2000
 
     for Board in BoardList:
 
-        if not Test:
-
-            if EnableSearchCondition:
-                ErrCode, NewestIndex = PTTBot.getNewestIndex(Board=Board, SearchType=inputSearchType, Search=inputSearch)
-            else:
-                ErrCode, NewestIndex = PTTBot.getNewestIndex(Board=Board)
-
-            if ErrCode != PTT.ErrorCode.Success:
-                PTTBot.Log('取得 ' + Board + ' 板最新文章編號失敗')
-                return False
-            
-            if NewestIndex == -1:
-                PTTBot.Log('取得 ' + Board + ' 板最新文章編號失敗')
-                return False
-            
-            PTTBot.Log('取得 ' + Board + ' 板最新文章編號: ' + str(NewestIndex))
+        if EnableSearchCondition:
+            ErrCode, NewestIndex = PTTBot.getNewestIndex(Board=Board, SearchType=inputSearchType, Search=inputSearch)
         else:
-            NewestIndex = 79280
-            PTTBot.Log('使用 ' + Board + ' 板文章編號: ' + str(NewestIndex))
+            ErrCode, NewestIndex = PTTBot.getNewestIndex(Board=Board)
+
+        if ErrCode != PTT.ErrorCode.Success:
+            PTTBot.Log('取得 ' + Board + ' 板最新文章編號失敗')
+            return False
+        
+        if NewestIndex == -1:
+            PTTBot.Log('取得 ' + Board + ' 板最新文章編號失敗')
+            return False
+        
+        PTTBot.Log('取得 ' + Board + ' 板最新文章編號: ' + str(NewestIndex))
+
+        if Test:
+            pass
+            NewestIndex = 2304
+            PTTBot.Log('改使用 ' + Board + ' 板文章編號: ' + str(NewestIndex))
         
         for i in range(TryPost):
             PTTBot.Log('-' * 50)
@@ -207,9 +219,10 @@ def GetPostDemo():
                     PTTBot.Log('文章被原 PO 刪掉了')
                 elif Post.getDeleteStatus() == PTT.PostDeleteStatus.ByModerator:
                     PTTBot.Log('文章被版主刪掉了')
-                
-                PTTBot.Log('作者: ' + Post.getAuthor())
-                PTTBot.Log('文章列表日期: ' + Post.getListDate())
+                elif Post.getDeleteStatus() == PTT.PostDeleteStatus.ByUnknow:
+                    PTTBot.Log('文章被刪掉了 in ALLPOST')
+
+                showPost(Post)
                 continue
             elif ErrCode != PTT.ErrorCode.Success:
                 PTTBot.Log('使用文章編號取得文章詳細資訊失敗 錯誤碼: ' + str(ErrCode))
@@ -1040,9 +1053,8 @@ if __name__ == '__main__':
         sys.exit()
     
     try:
-        findPostRrange(1)
-        # PostDemo()
-        # PushDemo()
+        PostDemo()
+        PushDemo()
         # GetNewestIndexDemo()
         # GetPostDemo()
         # MailDemo()

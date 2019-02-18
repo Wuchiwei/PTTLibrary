@@ -1,9 +1,14 @@
 import array
 
+
 def ParseParameter(type, input):
-    if input == None:
+    if input is None:
         return None
-    return type(input)
+    result = type(input)
+    if isinstance(result, str):
+        result = result.rstrip()
+    return result
+
 
 class PostSearchType(object):
     # 搜尋關鍵字    / ?
@@ -158,9 +163,12 @@ class PostDeleteStatus(object):
     NotDeleted =                            0
     ByAuthor =                              1
     ByModerator =                           2
+    ByUnknow =                              3
 
     MinValue = NotDeleted
-    MaxValue = ByModerator
+    MaxValue = ByUnknow
+
+
 class PostInformation(object):
     def __init__(self, Board=None, PostID=None, Author=None, Date=None, Title=None, WebUrl=None, Money=None, PostContent=None, IP=None, PushList=None, RawData=None, ListDate=None, DeleteStatus=0):
         self.__Board = ParseParameter(str, Board)        
